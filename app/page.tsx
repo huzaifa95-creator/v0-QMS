@@ -2,104 +2,81 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Building2, Mail, Lock, AlertCircle } from "lucide-react"
+import { Building2, Mail, Lock } from "lucide-react"
 import { Dashboard } from "@/components/dashboard"
-import { authService, type User } from "@/lib/api"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+
+type UserRole = "admin" | "sales" | "procurement" | "finance" | "guest"
+
+interface UserInterface {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+}
 
 export default function HomePage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<UserInterface | null>(null)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (authService.isAuthenticated()) {
-        try {
-          const response = await authService.getCurrentUser()
-          if (response.data) {
-            setUser(response.data)
-            setIsAuthenticated(true)
-          } else {
-            authService.logout()
-          }
-        } catch (error) {
-          authService.logout()
-        }
-      }
-    }
-    checkAuth()
-  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setError("")
 
-    try {
-      const response = await authService.login({ email, password })
-
-      if (response.data) {
-        setUser(response.data.user)
-        setIsAuthenticated(true)
-      } else {
-        setError(response.error || "Login failed")
+    // Simulate authentication
+    setTimeout(() => {
+      const mockUser: UserInterface = {
+        id: "1",
+        email,
+        name: email.split("@")[0],
+        role: "admin", // Default to admin for demo
       }
-    } catch (error) {
-      setError("Network error. Please try again.")
-    } finally {
+      setUser(mockUser)
+      setIsAuthenticated(true)
       setIsLoading(false)
-    }
+    }, 1000)
   }
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setError("")
 
-    try {
-      const response = await authService.register({
+    // Simulate registration
+    setTimeout(() => {
+      const mockUser: UserInterface = {
+        id: "1",
         email,
-        password,
-        full_name: name,
-        role: "user",
-      })
-
-      if (response.data) {
-        setUser(response.data.user)
-        setIsAuthenticated(true)
-      } else {
-        setError(response.error || "Registration failed")
+        name,
+        role: "sales", // Default to sales for new users
       }
-    } catch (error) {
-      setError("Network error. Please try again.")
-    } finally {
+      setUser(mockUser)
+      setIsAuthenticated(true)
       setIsLoading(false)
-    }
-  }
-
-  const handleLogout = () => {
-    authService.logout()
-    setIsAuthenticated(false)
-    setUser(null)
-    setEmail("")
-    setPassword("")
-    setName("")
-    setError("")
+    }, 1000)
   }
 
   if (isAuthenticated && user) {
-    return <Dashboard user={user} onLogout={handleLogout} />
+    return (
+      <Dashboard
+        user={user}
+        onLogout={() => {
+          setIsAuthenticated(false)
+          setUser(null)
+          setEmail("")
+          setPassword("")
+          setName("")
+        }}
+      />
+    )
   }
 
   return (
@@ -119,13 +96,6 @@ export default function HomePage() {
             <CardDescription className="text-center">Sign in to your account or create a new one</CardDescription>
           </CardHeader>
           <CardContent>
-            {error && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
             <Tabs defaultValue="login" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Sign In</TabsTrigger>
