@@ -1,11 +1,9 @@
-export * from "./client"
+// Export client and types first
+export { apiClient, type ApiResponse } from "./client"
 export * from "./types"
-export * from "./auth"
-export * from "./customers"
-export * from "./quotations"
-export * from "./inventory"
 
-export { authService } from "./auth"
+// Then export services that depend on client
+export { authService, type AuthResponse } from "./auth"
 export { customerService } from "./customers"
 export { quotationService } from "./quotations"
 export { inventoryService } from "./inventory"

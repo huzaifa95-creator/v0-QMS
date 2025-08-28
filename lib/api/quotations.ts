@@ -1,4 +1,4 @@
-import { apiClient, type ApiResponse } from "./client"
+import { apiClient, type ApiResponse } from "./index"
 import type { Quotation, QuotationCreateRequest } from "./types"
 
 export class QuotationService {
