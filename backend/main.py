@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import uvicorn
-from routers import auth, customers, vendors, products, quotations  # Import auth router, master data routers, and quotations router
+from routers import auth, customers, vendors, products, quotations, orders, inventory, reports, import_export  # Import auth router, master data routers, and quotations router
 
 # Load environment variables
 load_dotenv()
@@ -62,6 +62,10 @@ app.include_router(customers.router, prefix="/api/v1")
 app.include_router(vendors.router, prefix="/api/v1")
 app.include_router(products.router, prefix="/api/v1")
 app.include_router(quotations.router, prefix="/api/v1")  # Added quotations router
+app.include_router(orders.router, prefix="/api/v1")  # Added orders router
+app.include_router(inventory.router, prefix="/api/v1")  # Added inventory router
+app.include_router(reports.router, prefix="/api/v1")  # Added reports router
+app.include_router(import_export.router, prefix="/api/v1")  # Added import_export router
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

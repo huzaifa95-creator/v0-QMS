@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -33,15 +33,10 @@ import { ImportExportDashboard } from "@/components/import-export/import-export-
 import { NotificationCenter } from "@/components/notifications/notification-center"
 import { SettingsDashboard } from "@/components/settings/settings-dashboard"
 import { DeliveryInvoicingDashboard } from "@/components/delivery-invoicing/delivery-invoicing-dashboard"
+import type { User, DashboardMetrics } from "@/lib/api/types"
+import { apiClient } from "@/lib/api"
 
-type UserRole = "admin" | "sales" | "procurement" | "finance" | "guest"
-
-interface User {
-  id: string
-  email: string
-  name: string
-  role: UserRole
-}
+type UserRole = "admin" | "manager" | "user"
 
 interface DashboardProps {
   user: User
@@ -61,50 +56,50 @@ const menuItems: MenuItem[] = [
     id: "dashboard",
     label: "Dashboard",
     icon: <LayoutDashboard className="h-4 w-4" />,
-    roles: ["admin", "sales", "procurement", "finance", "guest"],
+    roles: ["admin", "manager", "user"],
   },
   {
     id: "masters",
     label: "Master Data",
     icon: <Users className="h-4 w-4" />,
-    roles: ["admin", "sales", "procurement"],
+    roles: ["admin", "manager"],
   },
   {
     id: "quotations",
     label: "Quotations",
     icon: <FileText className="h-4 w-4" />,
-    roles: ["admin", "sales"],
+    roles: ["admin", "manager", "user"],
     badge: "12",
   },
   {
     id: "orders",
     label: "Orders & Procurement",
     icon: <ShoppingCart className="h-4 w-4" />,
-    roles: ["admin", "sales", "procurement"],
+    roles: ["admin", "manager"],
   },
   {
     id: "delivery",
     label: "Delivery & Invoicing",
     icon: <Truck className="h-4 w-4" />,
-    roles: ["admin", "sales", "finance"],
+    roles: ["admin", "manager"],
   },
   {
     id: "inventory",
     label: "Inventory Tracking",
     icon: <Package className="h-4 w-4" />,
-    roles: ["admin", "procurement"],
+    roles: ["admin", "manager"],
   },
   {
     id: "import-export",
     label: "Import/Export",
     icon: <Ship className="h-4 w-4" />,
-    roles: ["admin", "sales", "procurement"],
+    roles: ["admin", "manager"],
   },
   {
     id: "reports",
     label: "Reports & Analytics",
     icon: <BarChart3 className="h-4 w-4" />,
-    roles: ["admin", "finance", "sales"],
+    roles: ["admin", "manager"],
   },
   {
     id: "settings",
@@ -118,12 +113,10 @@ const getRoleColor = (role: UserRole) => {
   switch (role) {
     case "admin":
       return "bg-primary text-primary-foreground"
-    case "sales":
+    case "manager":
       return "bg-secondary text-secondary-foreground"
-    case "procurement":
+    case "user":
       return "bg-accent text-accent-foreground"
-    case "finance":
-      return "bg-chart-4 text-foreground"
     default:
       return "bg-muted text-muted-foreground"
   }
@@ -132,15 +125,63 @@ const getRoleColor = (role: UserRole) => {
 export function Dashboard({ user, onLogout }: DashboardProps) {
   const [activeSection, setActiveSection] = useState("dashboard")
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [dashboardMetrics, setDashboardMetrics] = useState<DashboardMetrics | null>(null)
+  const [isLoadingMetrics, setIsLoadingMetrics] = useState(true)
 
   const filteredMenuItems = menuItems.filter((item) => item.roles.includes(user.role))
 
-  const stats = [
-    { title: "Total Quotations", value: "156", change: "+12%", trend: "up" },
-    { title: "Active Orders", value: "43", change: "+8%", trend: "up" },
-    { title: "Pending Invoices", value: "28", change: "-5%", trend: "down" },
-    { title: "Monthly Revenue", value: "$124,500", change: "+15%", trend: "up" },
-  ]
+  useEffect(() => {
+    const fetchDashboardMetrics = async () => {
+      try {
+        const response = await apiClient.get<DashboardMetrics>("/reports/dashboard")
+        if (response.data) {
+          setDashboardMetrics(response.data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard metrics:", error)
+      } finally {
+        setIsLoadingMetrics(false)
+      }
+    }
+
+    if (activeSection === "dashboard") {
+      fetchDashboardMetrics()
+    }
+  }, [activeSection])
+
+  const stats = dashboardMetrics
+    ? [
+        {
+          title: "Total Revenue",
+          value: `$${dashboardMetrics.total_revenue.toLocaleString()}`,
+          change: "+15%",
+          trend: "up" as const,
+        },
+        {
+          title: "Active Orders",
+          value: dashboardMetrics.total_orders.toString(),
+          change: "+8%",
+          trend: "up" as const,
+        },
+        {
+          title: "Pending Quotations",
+          value: dashboardMetrics.pending_quotations.toString(),
+          change: "-5%",
+          trend: "down" as const,
+        },
+        {
+          title: "Low Stock Alerts",
+          value: dashboardMetrics.low_stock_alerts.toString(),
+          change: "+2%",
+          trend: "up" as const,
+        },
+      ]
+    : [
+        { title: "Total Revenue", value: "Loading...", change: "", trend: "up" as const },
+        { title: "Active Orders", value: "Loading...", change: "", trend: "up" as const },
+        { title: "Pending Quotations", value: "Loading...", change: "", trend: "up" as const },
+        { title: "Low Stock Alerts", value: "Loading...", change: "", trend: "up" as const },
+      ]
 
   const moduleGrid = [
     {
@@ -148,9 +189,15 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
       name: "Quotations",
       icon: <FileText className="h-8 w-8" />,
       color: "bg-purple-500",
-      count: "156",
+      count: dashboardMetrics?.pending_quotations?.toString() || "...",
     },
-    { id: "orders", name: "Orders", icon: <ShoppingCart className="h-8 w-8" />, color: "bg-blue-500", count: "43" },
+    {
+      id: "orders",
+      name: "Orders",
+      icon: <ShoppingCart className="h-8 w-8" />,
+      color: "bg-blue-500",
+      count: dashboardMetrics?.total_orders?.toString() || "...",
+    },
     { id: "inventory", name: "Inventory", icon: <Package className="h-8 w-8" />, color: "bg-green-500", count: "1.2k" },
     { id: "masters", name: "Customers", icon: <Users className="h-8 w-8" />, color: "bg-orange-500", count: "89" },
     { id: "delivery", name: "Delivery", icon: <Truck className="h-8 w-8" />, color: "bg-cyan-500", count: "28" },
@@ -198,14 +245,14 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
 
             <div className="flex items-center gap-4 pl-4 border-l">
               <div className="text-right hidden sm:block">
-                <p className="text-base font-semibold">{user.name}</p>
+                <p className="text-base font-semibold">{user.full_name}</p>
                 <Badge variant="secondary" className={`${getRoleColor(user.role)} text-sm`}>
                   {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                 </Badge>
               </div>
               <Avatar className="h-12 w-12">
                 <AvatarFallback className="bg-primary text-primary-foreground font-semibold text-lg">
-                  {user.name.charAt(0).toUpperCase()}
+                  {user.full_name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -267,7 +314,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
               <div className="space-y-10">
                 <div className="mb-12">
                   <h1 className="text-6xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                    Welcome back, {user.name}
+                    Welcome back, {user.full_name}
                   </h1>
                   <p className="text-xl text-muted-foreground">
                     Manage your quotations and business operations from one unified platform.
@@ -291,23 +338,25 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                           }`}
                         >
                           {index === 0 ? (
-                            <FileText className="h-6 w-6" />
+                            <TrendingUp className="h-6 w-6" />
                           ) : index === 1 ? (
                             <ShoppingCart className="h-6 w-6" />
                           ) : index === 2 ? (
-                            <Truck className="h-6 w-6" />
+                            <FileText className="h-6 w-6" />
                           ) : (
-                            <TrendingUp className="h-6 w-6" />
+                            <Package className="h-6 w-6" />
                           )}
                         </div>
                       </CardHeader>
                       <CardContent>
                         <div className="text-4xl font-bold mb-2">{stat.value}</div>
-                        <p
-                          className={`text-base font-medium ${stat.trend === "up" ? "text-green-600" : "text-red-600"}`}
-                        >
-                          {stat.change} from last month
-                        </p>
+                        {stat.change && (
+                          <p
+                            className={`text-base font-medium ${stat.trend === "up" ? "text-green-600" : "text-red-600"}`}
+                          >
+                            {stat.change} from last month
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -410,7 +459,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                       {menuItems.find((item) => item.id === activeSection)?.label || "Dashboard"}
                     </h1>
                     <p className="text-xl text-muted-foreground">
-                      Welcome back, {user.name}. Here's what's happening with your business today.
+                      Welcome back, {user.full_name}. Here's what's happening with your business today.
                     </p>
                   </div>
 
@@ -442,7 +491,6 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         </main>
       </div>
 
-      {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
